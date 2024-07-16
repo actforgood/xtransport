@@ -33,6 +33,7 @@ func testAccessLogBasic(t *testing.T) {
 			nextHandlerCallsCnt++
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte(t.Name()))
+			time.Sleep(2 * time.Millisecond)
 		})
 		logger       = xlog.NewMockLogger()
 		logKeyValues []any
@@ -79,6 +80,7 @@ func testAccessLogExtended(t *testing.T) {
 		nextHandler         = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			nextHandlerCallsCnt++
 			w.Write([]byte(t.Name()))
+			time.Sleep(2 * time.Millisecond)
 		})
 		logger       = xlog.NewMockLogger()
 		logKeyValues []any
@@ -159,6 +161,7 @@ func testAccessLogObfuscatePathValue(t *testing.T) {
 		nextHandler         = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			nextHandlerCallsCnt++
 			w.WriteHeader(http.StatusNoContent)
+			time.Sleep(2 * time.Millisecond)
 		})
 		logger       = xlog.NewMockLogger()
 		logKeyValues []any
