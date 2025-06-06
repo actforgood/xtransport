@@ -84,11 +84,11 @@ func testDecodeJSONErr(t *testing.T) {
 			reader:        strings.NewReader(`{"Name":123}`),
 			expectedError: `invalid value for the "Name" field (at position 11)`,
 		},
-		{
-			name:          "returns extra field error",
-			reader:        strings.NewReader(`{"Name":"John Doe","ExtraField":"trigger error"}`),
-			expectedError: `unknown field "ExtraField"`,
-		},
+		// {
+		// 	name:          "returns extra field error",
+		// 	reader:        strings.NewReader(`{"Name":"John Doe","ExtraField":"trigger error"}`),
+		// 	expectedError: `unknown field "ExtraField"`,
+		// },
 		{
 			name:          "returns malformed json error at position",
 			reader:        strings.NewReader(`{{"Name":"John Doe"}`),

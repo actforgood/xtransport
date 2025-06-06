@@ -41,7 +41,7 @@ func TestProbe_concurrency(t *testing.T) {
 	wg.Add(20)
 
 	// act
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			rand := xrand.Intn(2)
 			if rand == 0 {
@@ -52,7 +52,7 @@ func TestProbe_concurrency(t *testing.T) {
 			wg.Done()
 		}()
 	}
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			_ = subject.IsReady()
 			wg.Done()

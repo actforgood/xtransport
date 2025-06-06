@@ -65,7 +65,7 @@ func BenchmarkUUIDCorrelationIDFactory(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for n := 0; n < b.N; n++ {
+	for range b.N {
 		_ = xtransport.UUIDCorrelationIDFactory()
 	}
 }
@@ -74,7 +74,7 @@ func BenchmarkXRandCorrelationIDFactory(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	for n := 0; n < b.N; n++ {
+	for range b.N {
 		_ = xtransport.XRandCorrelationIDFactory()
 	}
 }

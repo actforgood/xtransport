@@ -18,7 +18,7 @@ func Recover(next http.Handler, logger xlog.Logger) http.Handler {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("an unexpected error occurred, please try again later"))
 				logger.Error(
-					xlog.MessageKey, "handler panic catched",
+					xlog.MsgKey, "handler panic catched",
 					xlog.ErrorKey, err,
 					"path", r.URL.Path,
 					"method", r.Method,

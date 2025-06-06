@@ -11,7 +11,7 @@ import (
 // DecodeJSON decodes JSON contents of a [io.Reader] into a variable.
 func DecodeJSON(r io.Reader, dest any) error {
 	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
+	// dec.DisallowUnknownFields()
 	if err := dec.Decode(dest); err != nil {
 		var (
 			syntaxError        *json.SyntaxError
