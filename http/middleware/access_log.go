@@ -85,7 +85,7 @@ func AccessLog(next http.Handler, logger xlog.Logger, opts ...AccessLogOpts) htt
 			}
 		}
 
-		logParams := make([]any, 0, 22)
+		logParams := make([]any, 0, 12*2)
 		logParams = append(logParams,
 			[]any{
 				"lvl", "ACCESS",
@@ -103,6 +103,9 @@ func AccessLog(next http.Handler, logger xlog.Logger, opts ...AccessLogOpts) htt
 		correlationID := xtransport.CorrelationIDFromContext(r.Context())
 		if correlationID != "" {
 			logParams = append(logParams, "correlationId", correlationID)
+		}
+		if r.URL.User.Username() != "" {
+			logParams = append(logParams, "authUsername", r.URL.User.Username())
 		}
 		if r.Header.Get("Content-Length") != "" {
 			reqContentLen, _ := strconv.Atoi(r.Header.Get("Content-Length"))

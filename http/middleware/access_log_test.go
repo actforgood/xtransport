@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -93,6 +94,7 @@ func testAccessLogExtended(t *testing.T) {
 	req.Header.Set("User-Agent", "TestAccessLog/1.2")
 	req.Header.Set("Content-Length", "100")
 	req = req.WithContext(xtransport.ContextWithCorrelationID(req.Context(), "abcd-1234"))
+	req.URL.User = url.User("john-doe")
 	w.Header().Set("Content-Length", "200")
 
 	// act
@@ -104,7 +106,7 @@ func testAccessLogExtended(t *testing.T) {
 	respBody, _ := io.ReadAll(w.Result().Body)
 	assert.Equal(t, t.Name(), string(respBody))
 	if assert.Equal(t, 1, logger.LogCallsCount(xlog.LevelNone)) {
-		assert.Equal(t, 22, len(logKeyValues))
+		assert.Equal(t, 24, len(logKeyValues))
 		assert.Equal(t, "ACCESS", getLogValue("lvl", logKeyValues...))
 		assert.Equal(t, http.MethodDelete, getLogValue("method", logKeyValues...))
 		assert.Equal(t, "/foo/bar", getLogValue("path", logKeyValues...))
@@ -114,6 +116,7 @@ func testAccessLogExtended(t *testing.T) {
 		assert.Equal(t, 200, getLogValue("respContentLength", logKeyValues...))
 		assert.Equal(t, "192.0.2.1", getLogValue("ip", logKeyValues...))
 		assert.Equal(t, "TestAccessLog/1.2", getLogValue("userAgent", logKeyValues...))
+		assert.Equal(t, "john-doe", getLogValue("authUsername", logKeyValues...))
 		if took, ok := getLogValue("took", logKeyValues...).(string); assert.True(t, ok) {
 			tookDuration, err := time.ParseDuration(took)
 			assert.Nil(t, err)
