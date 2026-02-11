@@ -28,14 +28,10 @@ func TestRetry(t *testing.T) {
 				"testName", t.Name(),
 			)
 		})
-		logger       = xlog.NewMockLogger()
-		logKeyValues []any
-		req          = httptest.NewRequest(http.MethodGet, "http://example.com/foo/bar", nil)
-		w            = httptest.NewRecorder()
+		logger = xlog.NewMockLogger()
+		req    = httptest.NewRequest(http.MethodGet, "http://example.com/foo/bar", nil)
+		w      = httptest.NewRecorder()
 	)
-	logger.SetLogCallback(xlog.LevelInfo, func(keyValues ...any) {
-		logKeyValues = keyValues
-	})
 	req.Header.Set("User-Agent", t.Name()+"/1.1")
 
 	// act
@@ -47,7 +43,6 @@ func TestRetry(t *testing.T) {
 	respBody, _ := io.ReadAll(w.Result().Body)
 	assert.Equal(t, t.Name(), string(respBody))
 	if assert.Equal(t, 1, logger.LogCallsCount(xlog.LevelInfo)) {
-		assert.Equal(t, 2, len(logKeyValues))
-		assert.Equal(t, t.Name(), getLogValue("testName", logKeyValues...))
+		assert.Equal(t, t.Name(), logger.ValueAt(1, "testName"))
 	}
 }
