@@ -3,14 +3,14 @@ package middleware_test
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/actforgood/xlog"
-
 	"github.com/actforgood/xtransport/http/middleware"
 	"github.com/actforgood/xtransport/testing/assert"
+	"github.com/actforgood/xtransport/testing/mock"
 )
 
 func TestRecover(t *testing.T) {
@@ -31,9 +31,10 @@ func testRecoverNoPanic(t *testing.T) {
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(t.Name()))
 		})
-		logger = xlog.NewMockLogger()
-		req    = httptest.NewRequest(http.MethodGet, "http://example.com/noPanic", nil)
-		w      = httptest.NewRecorder()
+		loggerMock = mock.NewSlogHandler()
+		logger     = slog.New(loggerMock)
+		req        = httptest.NewRequest(http.MethodGet, "http://example.com/noPanic", nil)
+		w          = httptest.NewRecorder()
 	)
 
 	// act
@@ -44,7 +45,7 @@ func testRecoverNoPanic(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Result().StatusCode)
 	respBody, _ := io.ReadAll(w.Result().Body)
 	assert.Equal(t, t.Name(), string(respBody))
-	assert.Equal(t, 0, logger.LogCallsCount(xlog.LevelError))
+	assert.Equal(t, 0, loggerMock.LogCallsCount(slog.LevelError))
 }
 
 func testRecoverWithPanic(t *testing.T) {
@@ -57,9 +58,10 @@ func testRecoverWithPanic(t *testing.T) {
 			nextHandlerCallsCnt++
 			panic(errors.New("intentionally triggered panic"))
 		})
-		logger = xlog.NewMockLogger()
-		req    = httptest.NewRequest(http.MethodGet, "http://example.com/panicRoute", nil)
-		w      = httptest.NewRecorder()
+		loggerMock = mock.NewSlogHandler()
+		logger     = slog.New(loggerMock)
+		req        = httptest.NewRequest(http.MethodGet, "http://example.com/panicRoute", nil)
+		w          = httptest.NewRecorder()
 	)
 
 	// act
@@ -70,5 +72,5 @@ func testRecoverWithPanic(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Result().StatusCode)
 	respBody, _ := io.ReadAll(w.Result().Body)
 	assert.Equal(t, "an unexpected error occurred, please try again later", string(respBody))
-	assert.Equal(t, 1, logger.LogCallsCount(xlog.LevelError))
+	assert.Equal(t, 1, loggerMock.LogCallsCount(slog.LevelError))
 }

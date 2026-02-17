@@ -12,9 +12,13 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// ConnectionFactory is an interface for managing AMQP connections and channels.
 type ConnectionFactory interface {
+	// Conn returns the underlying AMQP connection.
 	Conn() *amqp.Connection
+	// Channel returns an AMQP channel with the given internal ID.
 	Channel(string) (*amqp.Channel, error)
+	// Close closes the underlying AMQP connection and all channels.
 	Close() error
 }
 
@@ -28,6 +32,8 @@ type defaultConnectionFactory struct {
 	channelsMu sync.RWMutex
 }
 
+// NewXConfConnectionFactory creates a new ConnectionFactory using the provided xconf.Config
+// and the key for the AMQP DSN.
 func NewXConfConnectionFactory(config xconf.Config, amqpDSNKey string) (ConnectionFactory, error) {
 	dsn := config.Get(amqpDSNKey, "").(string)
 	conn, err := initAMQPConn(dsn)
@@ -51,6 +57,7 @@ func NewXConfConnectionFactory(config xconf.Config, amqpDSNKey string) (Connecti
 	return connFac, nil
 }
 
+// NewDefaultConnectionFactory creates a new ConnectionFactory using the provided AMQP DSN.
 func NewDefaultConnectionFactory(amqpDSN string) (ConnectionFactory, error) {
 	conn, err := initAMQPConn(amqpDSN)
 	if err != nil {
@@ -67,6 +74,7 @@ func NewDefaultConnectionFactory(amqpDSN string) (ConnectionFactory, error) {
 	return connFac, nil
 }
 
+// Conn...see [ConnectionFactory.Conn].
 func (connFac *defaultConnectionFactory) Conn() *amqp.Connection {
 	connFac.connMu.RLock()
 	defer connFac.connMu.RUnlock()
@@ -74,6 +82,7 @@ func (connFac *defaultConnectionFactory) Conn() *amqp.Connection {
 	return connFac.conn
 }
 
+// Channel...see [ConnectionFactory.Channel].
 func (connFac *defaultConnectionFactory) Channel(id string) (*amqp.Channel, error) {
 	connFac.channelsMu.RLock()
 	ch, found := connFac.channels[id]
@@ -87,13 +96,14 @@ func (connFac *defaultConnectionFactory) Channel(id string) (*amqp.Channel, erro
 			return nil, xerr.Wrap(err, "could not initialize channel")
 		}
 		connFac.channels[id] = newCh
+
 		return newCh, nil
 	}
 
 	return ch, nil
 }
 
-// Close implements io.Closer.
+// Close...see [ConnectionFactory.Close].
 func (connFac *defaultConnectionFactory) Close() error {
 	if !connFac.Conn().IsClosed() {
 		if err := connFac.Conn().Close(); err != nil {

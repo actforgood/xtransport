@@ -2,9 +2,11 @@ package rabbit
 
 import (
 	"github.com/actforgood/xtransport/broker"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// ConvertToMessage converts an AMQP message to internal Message format.
 func ConvertToMessage(amqpMsg amqp.Delivery) broker.Message {
 	return broker.Message{
 		Body: amqpMsg.Body,
@@ -14,14 +16,14 @@ func ConvertToMessage(amqpMsg amqp.Delivery) broker.Message {
 			PropMsgContentEncoding: amqpMsg.ContentEncoding,
 			PropMsgDeliveryMode:    amqpMsg.DeliveryMode,
 			PropMsgPriority:        amqpMsg.Priority,
-			PropMsgCorrelationId:   amqpMsg.CorrelationId,
+			PropMsgCorrelationID:   amqpMsg.CorrelationId,
 			PropMsgReplyTo:         amqpMsg.ReplyTo,
 			PropMsgExpiration:      amqpMsg.Expiration,
-			PropMsgMessageId:       amqpMsg.MessageId,
+			PropMsgMessageID:       amqpMsg.MessageId,
 			PropMsgTimestamp:       amqpMsg.Timestamp,
 			PropMsgType:            amqpMsg.Type,
-			PropMsgUserId:          amqpMsg.UserId,
-			PropMsgAppId:           amqpMsg.AppId,
+			PropMsgUserID:          amqpMsg.UserId,
+			PropMsgAppID:           amqpMsg.AppId,
 			PropMsgConsumerTag:     amqpMsg.ConsumerTag,
 			PropMsgMessageCount:    amqpMsg.MessageCount,
 			PropMsgDeliveryTag:     amqpMsg.DeliveryTag,
@@ -32,10 +34,13 @@ func ConvertToMessage(amqpMsg amqp.Delivery) broker.Message {
 	}
 }
 
+// IsRetried checks if the given AMQP message has been retried
+// (based on the presence of the "x-death" header and its count).
 func IsRetried(amqpMsg amqp.Delivery) bool {
 	return RetryCount(amqpMsg) > 0
 }
 
+// RetryCount retrieves the retry count from the "x-death" header of the given AMQP message.
 func RetryCount(amqpMsg amqp.Delivery) int {
 	if xDeath, foundXDeath := amqpMsg.Headers["x-death"]; foundXDeath {
 		if xDeathEntries, ok := xDeath.([]any); ok && len(xDeathEntries) > 0 {
@@ -51,14 +56,17 @@ func RetryCount(amqpMsg amqp.Delivery) int {
 			}
 		}
 	}
+
 	return 0
 }
 
+// GetOriginQueue retrieves the origin queue from the "x-first-death-queue" header of the given AMQP message.
 func GetOriginQueue(amqpMsg amqp.Delivery) string {
 	if xDeathFirstQueue, found := amqpMsg.Headers["x-first-death-queue"]; found {
 		if queueName, ok := xDeathFirstQueue.(string); ok {
 			return queueName
 		}
 	}
+
 	return ""
 }

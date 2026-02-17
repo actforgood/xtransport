@@ -1,16 +1,19 @@
 package middleware
 
 import (
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/actforgood/xlog"
 	"github.com/actforgood/xtransport"
 	httpTransport "github.com/actforgood/xtransport/http"
 )
+
+// AccessLevel is the log level used for access logs.
+var AccessLevel slog.Level = slog.LevelError + 4
 
 // http.ResponseWriter.
 type statusAwareResponseWriter struct {
@@ -58,7 +61,7 @@ type AccessLogOpts struct {
 
 // AccessLog is a decorator/middleware that extracts/ads a correlation id
 // from/to request/response.
-func AccessLog(next http.Handler, logger xlog.Logger, opts ...AccessLogOpts) http.Handler {
+func AccessLog(next http.Handler, logger *slog.Logger, opts ...AccessLogOpts) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var opt AccessLogOpts
 		if len(opts) > 0 {
@@ -118,6 +121,6 @@ func AccessLog(next http.Handler, logger xlog.Logger, opts ...AccessLogOpts) htt
 			logParams = append(logParams, "respBodyLength", newW.BodySize())
 		}
 
-		logger.Log(logParams...)
+		logger.Log(r.Context(), AccessLevel, "access log", logParams...)
 	})
 }

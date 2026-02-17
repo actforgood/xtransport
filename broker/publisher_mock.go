@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-// PublisherMock is a mock for [Publiser]. It can be used in UT.
+// PublisherMock is a mock for [Publisher]. It can be used in UT.
 type PublisherMock struct {
 	publishCallsCnt uint32
 	publishCallback func(context.Context, Message) error

@@ -12,12 +12,13 @@ Package `xtransport` provides a transport layer for go.
 Currently http transport is implemented.
 
 
+> [!NOTE]  
+> This package is currently under development and is unstable.
+APIs may change. We recommend to wait for a stable release!
+
 ### Installation
 
 ```shell
 $ go get github.com/actforgood/xtransport
 ```
 
-### NOTE
-This package is currently under development and is unstable.
-APIs may change. If you want to use it it's on your own risk. We recommend to wait for a stable release!

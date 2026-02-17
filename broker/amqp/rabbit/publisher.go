@@ -17,8 +17,8 @@ type publisher struct {
 	channelID string
 }
 
-func NewPublisher(connFac ConnectionFactory, Config Config) (broker.Publisher, error) {
-	pub := &publisher{config: Config, connFac: connFac, channelID: xrand.String(6)}
+func NewPublisher(connFac ConnectionFactory, config Config) (broker.Publisher, error) {
+	pub := &publisher{config: config, connFac: connFac, channelID: xrand.String(6)}
 	if err := pub.initialize(); err != nil {
 		return nil, err
 	}
@@ -79,14 +79,14 @@ func (p *publisher) Publish(ctx context.Context, msg broker.Message) error {
 		ContentEncoding: msg.Props.GetString(PropMsgContentEncoding),
 		DeliveryMode:    uint8(msg.Props.GetInt(PropMsgDeliveryMode)),
 		Priority:        uint8(msg.Props.GetInt(PropMsgPriority)),
-		CorrelationId:   msg.Props.GetString(PropMsgCorrelationId),
+		CorrelationId:   msg.Props.GetString(PropMsgCorrelationID),
 		ReplyTo:         msg.Props.GetString(PropMsgReplyTo),
 		Expiration:      msg.Props.GetString(PropMsgExpiration),
-		MessageId:       msg.Props.GetString(PropMsgMessageId),
+		MessageId:       msg.Props.GetString(PropMsgMessageID),
 		Timestamp:       msg.Props.GetTime(PropMsgTimestamp),
 		Type:            msg.Props.GetString(PropMsgType),
-		UserId:          msg.Props.GetString(PropMsgUserId),
-		AppId:           msg.Props.GetString(PropMsgAppId),
+		UserId:          msg.Props.GetString(PropMsgUserID),
+		AppId:           msg.Props.GetString(PropMsgAppID),
 		Body:            msg.Body,
 	}
 

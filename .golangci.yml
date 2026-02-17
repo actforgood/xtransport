@@ -26,6 +26,16 @@ linters:
       - linters:
           - lll
         path: _test\.go
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          exclude:
+            - "broker/amqp/rabbit/config.go" # skip due to the big no. of constants in the file that do not have comments.
+          arguments:
+            - [] # AllowList
+            - [] # DenyList
+            - - skip-package-name-collision-with-go-std: true
 
 formatters:
   enable:

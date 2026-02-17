@@ -4,24 +4,24 @@ package http
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/actforgood/xerr"
-	"github.com/actforgood/xlog"
 
 	"github.com/actforgood/xtransport"
 )
 
 type httpTransport struct {
 	httpSrv *http.Server
-	logger  xlog.Logger
+	logger  *slog.Logger
 	probe   *xtransport.Probe
 }
 
 // NewHTTPTransport instantiates a new HTTP transport.
 func NewHTTPTransport(
 	httpSrv *http.Server,
-	logger xlog.Logger,
+	logger *slog.Logger,
 	probe *xtransport.Probe,
 ) xtransport.Transport {
 	return httpTransport{
@@ -37,7 +37,7 @@ func (ht httpTransport) StartAsync(_ context.Context, errorsChan chan<- error) {
 		if ht.probe != nil {
 			ht.probe.SetReady(true)
 		}
-		ht.logger.Info(xlog.MsgKey, "HTTP server starting", "address", ht.httpSrv.Addr)
+		ht.logger.Info("HTTP server starting", "address", ht.httpSrv.Addr)
 		if err := ht.httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errorsChan <- xerr.Wrap(err, "HTTP server could not listen for connections")
 		}

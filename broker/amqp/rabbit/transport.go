@@ -4,12 +4,12 @@ package rabbit
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/actforgood/xerr"
-	"github.com/actforgood/xlog"
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/actforgood/xtransport"
@@ -21,30 +21,33 @@ type rabbitmqTransport struct {
 	consumers         []broker.Consumer
 	shutDown          bool
 	consummersStopped chan struct{}
+	logger            *slog.Logger
 	mu                *sync.RWMutex
 }
 
 // NewRabbitMQTransport instantiates a new RabbitMQ transport.
 func NewRabbitMQTransport(
 	connFac ConnectionFactory,
+	logger *slog.Logger,
 	consumers ...broker.Consumer,
 ) xtransport.Transport {
 	return &rabbitmqTransport{
 		connFac:           connFac,
 		consumers:         consumers,
 		consummersStopped: make(chan struct{}),
+		logger:            logger,
 		mu:                new(sync.RWMutex),
 	}
 }
 
 // StartAsync starts the HTTP server. It listens for new connections and messages.
 func (rt *rabbitmqTransport) StartAsync(ctx context.Context, errorsChan chan<- error) {
-	xlog.LoggerFromContext(ctx).Info(xlog.MsgKey, "AMQP (RabbitMQ) transport starting")
+	rt.logger.Info("AMQP (RabbitMQ) transport starting")
 
 	go func() {
 		var err error
 		var ch *amqp.Channel
-		var errorsCount = 0
+		var errorsCount int
 		var wg sync.WaitGroup
 		for _, consumer := range rt.consumers {
 			errorsCount = 0
@@ -56,15 +59,11 @@ func (rt *rabbitmqTransport) StartAsync(ctx context.Context, errorsChan chan<- e
 				case <-ctx.Done():
 					return
 				case <-time.After(time.Duration(errorsCount) * time.Second):
-
 				}
 				ch, err = rt.connFac.Channel(consumer.Props().GetString(PropConsumerConsumeName))
 				if err != nil {
-					xlog.LoggerFromContext(ctx).Warn(
-						xlog.MsgKey, "could not make channel",
-						xlog.ErrorKey, err,
-						"correlationId", xtransport.CorrelationIDFromContext(ctx),
-					)
+					rt.logger.Warn("could not initialize channel", "err", xerr.Wrap(err, ""))
+
 					continue
 				}
 				ch.Qos(50, 0, false) // TODO: make it configurable
@@ -89,22 +88,19 @@ func (rt *rabbitmqTransport) StartAsync(ctx context.Context, errorsChan chan<- e
 					argsConsume,
 				)
 				if err != nil {
-					xlog.LoggerFromContext(ctx).Warn(
-						xlog.MsgKey, "could not get messages chan",
-						xlog.ErrorKey, err,
-						"correlationId", xtransport.CorrelationIDFromContext(ctx),
-					)
+					rt.logger.Warn("could not get messages chan", "err", xerr.Wrap(err, ""))
+
 					continue
 				} else {
-					xlog.LoggerFromContext(ctx).Info(
-						xlog.MsgKey, "consumer started consuming messages",
-						"correlationId", xtransport.CorrelationIDFromContext(ctx),
+					rt.logger.Info(
+						"consumer started consuming messages",
 						"consumer", consumer.Props().GetString(PropConsumerConsumeName),
 						"queue", consumer.Props().GetString(PropConsumerQueueName),
 					)
 				}
 				wg.Add(1)
 				go rt.consumeMessages(ctx, deliveryChan, &wg, consumer)
+
 				break
 			}
 		}
@@ -130,17 +126,15 @@ func (rt *rabbitmqTransport) Shutdown(ctx context.Context) error {
 			continue
 		}
 		if err := ch.Cancel(consumer.Props().GetString(PropConsumerConsumeName), false); err != nil {
-			xlog.LoggerFromContext(ctx).Warn(
-				xlog.MsgKey, "could not cancel consumer",
-				xlog.ErrorKey, err,
-				"correlationId", xtransport.CorrelationIDFromContext(ctx),
+			rt.logger.Warn(
+				"could not stop consumer",
+				"err", xerr.Wrap(err, ""),
 				"consumer", consumer.Props().GetString(PropConsumerConsumeName),
 				"queue", consumer.Props().GetString(PropConsumerQueueName),
 			)
 		} else {
-			xlog.LoggerFromContext(ctx).Info(
-				xlog.MsgKey, "consumer cancelled",
-				"correlationId", xtransport.CorrelationIDFromContext(ctx),
+			rt.logger.Info(
+				"consumer stopped",
 				"consumer", consumer.Props().GetString(PropConsumerConsumeName),
 				"queue", consumer.Props().GetString(PropConsumerQueueName),
 			)
@@ -177,7 +171,7 @@ func (rt *rabbitmqTransport) isShutDown() bool {
 	return rt.shutDown
 }
 
-func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, consumer broker.Consumer) error {
+func (rt *rabbitmqTransport) setUpQueue(_ context.Context, ch *amqp.Channel, consumer broker.Consumer) error {
 	var argsQueue amqp.Table
 	if argsFromProps, ok := consumer.Props()[PropConsumerQueueArgs].(map[string]any); ok {
 		argsQueue = amqp.Table(argsFromProps)
@@ -190,12 +184,12 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 		consumer.Props().GetBool(PropConsumerQueueNoWait),
 		argsQueue,
 	); err != nil {
-		xlog.LoggerFromContext(ctx).Warn(
-			xlog.MsgKey, "could not initialize queue",
+		rt.logger.Warn(
+			"could not initialize queue",
+			"err", xerr.Wrap(err, ""),
 			"queue", consumer.Props().GetString(PropConsumerQueueName),
-			xlog.ErrorKey, err,
-			"correlationId", xtransport.CorrelationIDFromContext(ctx),
 		)
+
 		return err
 	}
 
@@ -209,13 +203,13 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 			false,
 			nil,
 		); err != nil {
-			xlog.LoggerFromContext(ctx).Warn(
-				xlog.MsgKey, "could not initialize exchange",
+			rt.logger.Warn(
+				"could not initialize exchange",
+				"err", xerr.Wrap(err, ""),
 				"exchange", consumer.Props().GetString(PropConsumerExchangeName),
 				"queue", consumer.Props().GetString(PropConsumerQueueName),
-				xlog.ErrorKey, err,
-				"correlationId", xtransport.CorrelationIDFromContext(ctx),
 			)
+
 			return err
 		}
 
@@ -226,13 +220,13 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 			false,
 			nil,
 		); err != nil {
-			xlog.LoggerFromContext(ctx).Warn(
-				xlog.MsgKey, "could not bind queue",
+			rt.logger.Warn(
+				"could not bind queue",
+				"err", xerr.Wrap(err, ""),
 				"exchange", consumer.Props().GetString(PropConsumerExchangeName),
 				"queue", consumer.Props().GetString(PropConsumerQueueName),
-				xlog.ErrorKey, err,
-				"correlationId", xtransport.CorrelationIDFromContext(ctx),
 			)
+
 			return err
 		}
 
@@ -248,18 +242,19 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 				false,
 				nil,
 			); err != nil {
-				xlog.LoggerFromContext(ctx).Warn(
-					xlog.MsgKey, "could not initialize DLX exchange",
+				rt.logger.Warn(
+					"could not initialize DLX exchange",
+					"err", xerr.Wrap(err, ""),
 					"exchange", dlxExchangeNameStr,
 					"queue", consumer.Props().GetString(PropConsumerQueueName),
-					xlog.ErrorKey, err,
-					"correlationId", xtransport.CorrelationIDFromContext(ctx),
 				)
+
 				return err
 			}
 
 			retryInterval := int(consumer.Props().GetDuration(PropConsumerConsumeInternalRetryInterval) / time.Millisecond)
-			retryQueueName := dlxExchangeNameStr + "_" + consumer.Props().GetString(PropMsgRoutingKey) + "_retry_" + strconv.Itoa(retryInterval)
+			retryQueueName := dlxExchangeNameStr + "_" + consumer.Props().GetString(PropMsgRoutingKey) +
+				"_retry_" + strconv.Itoa(retryInterval)
 			if _, err := ch.QueueDeclare(
 				retryQueueName,
 				consumer.Props().GetBool(PropConsumerQueueDurable),
@@ -272,12 +267,12 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 					"x-message-ttl":             retryInterval,
 				},
 			); err != nil {
-				xlog.LoggerFromContext(ctx).Warn(
-					xlog.MsgKey, "could not initialize retry queue",
+				rt.logger.Warn(
+					"could not initialize retry queue",
+					"err", xerr.Wrap(err, ""),
 					"queue", retryQueueName,
-					xlog.ErrorKey, err,
-					"correlationId", xtransport.CorrelationIDFromContext(ctx),
 				)
+
 				return err
 			}
 
@@ -294,13 +289,13 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 				false,
 				nil,
 			); err != nil {
-				xlog.LoggerFromContext(ctx).Warn(
-					xlog.MsgKey, "could not bind retry queue",
+				rt.logger.Warn(
+					"could not bind retry queue",
+					"err", xerr.Wrap(err, ""),
 					"exchange", dlxExchangeNameStr,
 					"queue", retryQueueName,
-					xlog.ErrorKey, err,
-					"correlationId", xtransport.CorrelationIDFromContext(ctx),
 				)
+
 				return err
 			}
 		}
@@ -309,28 +304,39 @@ func (rt *rabbitmqTransport) setUpQueue(ctx context.Context, ch *amqp.Channel, c
 	return nil
 }
 
-func (rt *rabbitmqTransport) consumeMessages(ctx context.Context, msgChan <-chan amqp.Delivery, wg *sync.WaitGroup, consumer broker.Consumer) {
+func (rt *rabbitmqTransport) consumeMessages(
+	ctx context.Context,
+	msgChan <-chan amqp.Delivery,
+	wg *sync.WaitGroup,
+	consumer broker.Consumer,
+) {
 	skippedCount := 0
 	var ackResult byte
+
+	logger := rt.logger.With(
+		"consumer", consumer.Props().GetString(PropConsumerConsumeName),
+		"queue", consumer.Props().GetString(PropConsumerQueueName),
+	)
+
 	for msg := range msgChan {
 		var newCtx context.Context
+		var lgr *slog.Logger
 		if msg.CorrelationId != "" {
 			newCtx = xtransport.ContextWithCorrelationID(ctx, msg.CorrelationId)
+			lgr = logger.With("correlationId", msg.CorrelationId)
 		} else {
 			newCtx = ctx
+			lgr = logger
 		}
 
 		if rt.isShutDown() {
 			// transport is shutting down, skip processing the message and requeue it
 			if err := msg.Nack(false, true); err != nil {
-				xlog.LoggerFromContext(newCtx).Error(
-					xlog.MsgKey, "could not NACK-Requeue message at shutdown",
-					xlog.ErrorKey, xerr.Wrap(err, ""),
-					"correlationId", xtransport.CorrelationIDFromContext(newCtx),
-				)
+				lgr.Error("could not NACK-Requeue message at shutdown", "err", xerr.Wrap(err, ""))
 			} else {
 				skippedCount++
 			}
+
 			continue
 		}
 
@@ -344,12 +350,9 @@ func (rt *rabbitmqTransport) consumeMessages(ctx context.Context, msgChan <-chan
 				consumer.Props().GetInt(PropConsumerConsumeInternalRetryMax) > 0 &&
 				RetryCount(msg) >= consumer.Props().GetInt(PropConsumerConsumeInternalRetryMax) &&
 				ackResult == broker.ConsumeResultNack {
-				xlog.LoggerFromContext(newCtx).Warn(
-					xlog.MsgKey, "message exceeded max retry count, acknowledging it",
+				lgr.Warn(
+					"message exceeded max retry count, acknowledging it",
 					"maxRetry", consumer.Props().GetInt(PropConsumerConsumeInternalRetryMax),
-					"correlationId", xtransport.CorrelationIDFromContext(newCtx),
-					"consumer", consumer.Props().GetString(PropConsumerConsumeName),
-					"queue", consumer.Props().GetString(PropConsumerQueueName),
 				)
 				ackResult = broker.ConsumeResultAck
 			}
@@ -357,39 +360,21 @@ func (rt *rabbitmqTransport) consumeMessages(ctx context.Context, msgChan <-chan
 		switch ackResult {
 		case broker.ConsumeResultAck:
 			if err := msg.Ack(false); err != nil {
-				xlog.LoggerFromContext(newCtx).Error(
-					xlog.MsgKey, "could not ACK message",
-					xlog.ErrorKey, xerr.Wrap(err, ""),
-					"correlationId", xtransport.CorrelationIDFromContext(newCtx),
-				)
+				lgr.Error("could not ACK message", "err", xerr.Wrap(err, ""))
 			}
 		case broker.ConsumeResultNack:
 			if err := msg.Nack(false, false); err != nil {
-				xlog.LoggerFromContext(newCtx).Error(
-					xlog.MsgKey, "could not NACK message",
-					xlog.ErrorKey, xerr.Wrap(err, ""),
-					"correlationId", xtransport.CorrelationIDFromContext(newCtx),
-				)
+				lgr.Error("could not NACK message", "err", xerr.Wrap(err, ""))
 			}
 		case broker.ConsumeResultNackRequeue:
 			if err := msg.Nack(false, true); err != nil {
-				xlog.LoggerFromContext(newCtx).Error(
-					xlog.MsgKey, "could not NACK-Requeue message",
-					xlog.ErrorKey, xerr.Wrap(err, ""),
-					"correlationId", xtransport.CorrelationIDFromContext(newCtx),
-				)
+				lgr.Error("could not NACK-Requeue message", "err", xerr.Wrap(err, ""))
 			}
 		}
 	}
 
 	if skippedCount > 0 {
-		xlog.LoggerFromContext(ctx).Info(
-			xlog.MsgKey, "skipped processing messages due to shutdown",
-			"skippedCount", skippedCount,
-			"correlationId", xtransport.CorrelationIDFromContext(ctx),
-			"consumer", consumer.Props().GetString(PropConsumerConsumeName),
-			"queue", consumer.Props().GetString(PropConsumerQueueName),
-		)
+		logger.Info("skipped processing messages due to shutdown", "skippedCount", skippedCount)
 	}
 
 	wg.Done()

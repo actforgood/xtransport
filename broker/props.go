@@ -5,8 +5,11 @@ import (
 	"time"
 )
 
+// Props represents a set of properties that can be associated with a consumer or publisher.
 type Props map[string]any
 
+// Get retrieves the value of the specified property name.
+// If the property is not found, it returns nil.
 func (p Props) Get(propName string) any {
 	if value, found := p[propName]; found {
 		return value
@@ -15,6 +18,8 @@ func (p Props) Get(propName string) any {
 	return nil
 }
 
+// GetString retrieves the string value of the specified property name.
+// If the property is not found or cannot be converted to a string, it returns an empty string.
 func (p Props) GetString(propName string) string {
 	if value, found := p[propName]; found {
 		if valStr, ok := value.(string); ok {
@@ -25,6 +30,8 @@ func (p Props) GetString(propName string) string {
 	return ""
 }
 
+// GetBool retrieves the boolean value of the specified property name.
+// If the property is not found or cannot be converted to a boolean, it returns false.
 func (p Props) GetBool(propName string) bool {
 	if value, found := p[propName]; found {
 		if valBool, ok := value.(bool); ok {
@@ -35,6 +42,8 @@ func (p Props) GetBool(propName string) bool {
 	return false
 }
 
+// GetInt retrieves the integer value of the specified property name.
+// If the property is not found or cannot be converted to an integer, it returns 0.
 func (p Props) GetInt(propName string) int {
 	if value, found := p[propName]; found {
 		if valInt, ok := value.(int); ok {
@@ -56,6 +65,8 @@ func (p Props) GetInt(propName string) int {
 	return 0
 }
 
+// GetTime retrieves the time value of the specified property name.
+// If the property is not found or cannot be converted to a time, it returns the zero value of time.Time.
 func (p Props) GetTime(propName string) time.Time {
 	if value, found := p[propName]; found {
 		if value, ok := value.(time.Time); ok {
@@ -66,6 +77,8 @@ func (p Props) GetTime(propName string) time.Time {
 	return time.Time{}
 }
 
+// GetDuration retrieves the duration value of the specified property name.
+// If the property is not found or cannot be converted to a duration, it returns 0.
 func (p Props) GetDuration(propName string) time.Duration {
 	if value, found := p[propName]; found {
 		if value, ok := value.(time.Duration); ok {

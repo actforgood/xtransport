@@ -3,15 +3,16 @@ package http_test
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/actforgood/xlog"
 	"github.com/actforgood/xtransport"
 	httpTransport "github.com/actforgood/xtransport/http"
 	"github.com/actforgood/xtransport/testing/assert"
+	"github.com/actforgood/xtransport/testing/mock"
 )
 
 func TestHealth(t *testing.T) {
@@ -75,9 +76,11 @@ func TestHTTPTransport(t *testing.T) {
 			IdleTimeout:  2 * time.Minute,
 			Handler:      mux,
 		}
-		subject = httpTransport.NewHTTPTransport(httpSrv, xlog.NopLogger{}, probe)
-		errChan = make(chan error, 1)
-		ctx     = context.Background()
+		loggerMock = mock.NewSlogHandler()
+		logger     = slog.New(loggerMock)
+		subject    = httpTransport.NewHTTPTransport(httpSrv, logger, probe)
+		errChan    = make(chan error, 1)
+		ctx        = context.Background()
 	)
 	mux.HandleFunc("/health", httpTransport.Health(probe))
 	go func() {
