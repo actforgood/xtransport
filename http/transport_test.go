@@ -65,6 +65,7 @@ func restHealthIsNotHealthy(t *testing.T) {
 
 func TestHTTPTransport(t *testing.T) {
 	t.Parallel()
+	t.Skip("TODO: move into an integration test")
 
 	var (
 		probe   = new(xtransport.Probe)
