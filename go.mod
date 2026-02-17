@@ -1,11 +1,9 @@
 module github.com/actforgood/xtransport
 
-go 1.24
-
-toolchain go1.24.3
+go 1.25
 
 require (
-	github.com/actforgood/xerr v1.5.0
+	github.com/actforgood/xerr v1.6.0
 	github.com/actforgood/xlog v1.8.0
 	github.com/actforgood/xrand v1.5.0
 	github.com/actforgood/xver v1.0.0
