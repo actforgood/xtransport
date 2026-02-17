@@ -4,8 +4,8 @@ github.com/actforgood/xerr v1.6.0 h1:wsfuNWG7KR8BqXvdT8I336uQXf8VaFkUrdqUzLGaHnE
 github.com/actforgood/xerr v1.6.0/go.mod h1:jZTmwzz3PNYvD9cRrc/DXPdYsUisnl93NUNCHq7aSJs=
 github.com/actforgood/xrand v1.6.0 h1:AYoJ60Ykf8q6spxBAJv/diqUCvKHvHUGLt8fr36H8QI=
 github.com/actforgood/xrand v1.6.0/go.mod h1:tsQiw5qVfibcSxmjGr3YEzorw07a8YqTDUGCIUw/61o=
-github.com/actforgood/xver v1.0.0 h1:iHXOOM/G705XYs4KOAKnwteYY+IjgEzBJteWJ5KRhTg=
-github.com/actforgood/xver v1.0.0/go.mod h1:cjzCtnse5d++k8TDPGh37zP4CHif5kkiy6nwhiQqFqM=
+github.com/actforgood/xver v1.1.0 h1:xnCRmOUygewyEB26iLNXsUfz82u4Pfdbo5UR+aP/oAA=
+github.com/actforgood/xver v1.1.0/go.mod h1:kPITSWAepVZO62VUgloRj3doBMMUzs8Zymts1869BjE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/coreos/go-semver v0.3.1 h1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=
