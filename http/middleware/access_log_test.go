@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func testAccessLogBasic(t *testing.T) {
 	req.Header.Set("User-Agent", "TestAccessLog/1.1")
 
 	// act
-	middleware.AccessLog(nextHandler, logger).ServeHTTP(w, req)
+	middleware.AccessLog(nextHandler, logger, nil).ServeHTTP(w, req)
 
 	// assert
 	assert.Equal(t, 1, nextHandlerCallsCnt)
@@ -91,7 +92,7 @@ func testAccessLogExtended(t *testing.T) {
 	w.Header().Set("Content-Length", "200")
 
 	// act
-	middleware.AccessLog(nextHandler, logger).ServeHTTP(w, req)
+	middleware.AccessLog(nextHandler, logger, nil).ServeHTTP(w, req)
 
 	// assert
 	assert.Equal(t, 1, nextHandlerCallsCnt)
@@ -130,15 +131,17 @@ func testAccessLogSkipMethod(t *testing.T) {
 			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte(t.Name()))
 		})
-		loggerMock = mock.NewSlogHandler()
-		logger     = slog.New(loggerMock)
-		req        = httptest.NewRequest(http.MethodGet, "http://example.com/skip/method/get", nil)
-		w          = httptest.NewRecorder()
+		loggerMock   = mock.NewSlogHandler()
+		logger       = slog.New(loggerMock)
+		req          = httptest.NewRequest(http.MethodGet, "http://example.com/skip/method/get", nil)
+		w            = httptest.NewRecorder()
+		skipCallback = func(r *http.Request) bool {
+			return r.Method != http.MethodGet
+		}
 	)
-	opts := middleware.AccessLogOpts{SkipMethods: []string{http.MethodGet}}
 
 	// act
-	middleware.AccessLog(nextHandler, logger, opts).ServeHTTP(w, req)
+	middleware.AccessLog(nextHandler, logger, skipCallback).ServeHTTP(w, req)
 
 	// assert
 	assert.Equal(t, 1, nextHandlerCallsCnt)
@@ -162,16 +165,25 @@ func testAccessLogObfuscatePathValue(t *testing.T) {
 		loggerMock = mock.NewSlogHandler()
 		logger     = slog.New(loggerMock)
 		// suppose url would be registered as http://example.com/auth/{authToken}/customer/{customerId}
-		req = httptest.NewRequest(http.MethodDelete, "http://example.com/auth/abc-xyz-very-secret/customer/1234", nil)
-		w   = httptest.NewRecorder()
+		req               = httptest.NewRequest(http.MethodDelete, "http://example.com/auth/abc-xyz-very-secret/customer/1234", nil)
+		w                 = httptest.NewRecorder()
+		obfuscateCallback = func(r *http.Request) bool {
+			if r.PathValue("authToken") != "" {
+				// obfuscate secret token in the request path
+				newPath := r.URL.Path
+				newPath = strings.ReplaceAll(newPath, r.PathValue("authToken"), r.PathValue("authToken")[:4]+"****")
+				r.URL.Path = newPath
+			}
+
+			return true // log the request
+		}
 	)
 	req.Header.Set("User-Agent", "TestAccessLog/1.4")
 	req.SetPathValue("authToken", "abc-xyz-very-secret")
 	req.SetPathValue("customerId", "1234")
-	opts := middleware.AccessLogOpts{ObfuscatePathValues: []string{"authToken"}}
 
 	// act
-	middleware.AccessLog(nextHandler, logger, opts).ServeHTTP(w, req)
+	middleware.AccessLog(nextHandler, logger, obfuscateCallback).ServeHTTP(w, req)
 
 	// assert
 	assert.Equal(t, 1, nextHandlerCallsCnt)
@@ -181,7 +193,7 @@ func testAccessLogObfuscatePathValue(t *testing.T) {
 	if assert.Equal(t, 1, loggerMock.LogCallsCount(middleware.AccessLevel)) {
 		assert.Equal(t, "ACCESS", loggerMock.ValueAt(1, "lvl"))
 		assert.Equal(t, http.MethodDelete, loggerMock.ValueAt(1, "method"))
-		assert.Equal(t, "/auth/abc-xyz-ver********/customer/1234", loggerMock.ValueAt(1, "path"))
+		assert.Equal(t, "/auth/abc-****/customer/1234", loggerMock.ValueAt(1, "path"))
 		assert.Equal(t, int64(http.StatusNoContent), loggerMock.ValueAt(1, "statusCode"))
 		assert.Equal(t, int64(0), loggerMock.ValueAt(1, "respBodyLength"))
 		assert.Equal(t, "192.0.2.1", loggerMock.ValueAt(1, "ip"))

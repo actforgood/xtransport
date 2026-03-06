@@ -2,10 +2,8 @@ package middleware
 
 import (
 	"log/slog"
-	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/actforgood/xtransport"
@@ -50,41 +48,39 @@ func (w *statusAwareResponseWriter) BodySize() int {
 	return w.bodySize
 }
 
-// AccessLogOpts holds some configuration for access log.
-type AccessLogOpts struct {
-	// SkipMethods specifies the http methods to skip logging for.
-	SkipMethods []string
-	// ObfuscatePathValues specifies the request url parts that should be obscure.
-	// Last maximum 8 chars from it will be replaced with "*".
-	ObfuscatePathValues []string
-}
+// AccessRequestCallback is a function type through which you can specify a callback
+// to to indicate whether a request should be logged or not, and to modify the request before logging.
+//
+// Usage example:
+//
+//	func myAccessRequestCallback(r *http.Request) bool {
+//	    if r.URL.Path == "/health" {
+//	        return false // skip logging for health endpoint
+//	    }
+//
+//	    if r.PathValue("secretToken") != "" {
+//	        // obfuscate secret token in the request path
+//	        newPath := strings.ReplaceAll(r.URL.Path, r.PathValue("secretToken"), r.PathValue("secretToken")[:4]+"****")
+//	        r.URL.Path = newPath
+//	    }
+//
+//	    return true // log the request
+//	}
+type AccessRequestCallbeck func(r *http.Request) bool
 
 // AccessLog is a decorator/middleware that extracts/ads a correlation id
 // from/to request/response.
-func AccessLog(next http.Handler, logger *slog.Logger, opts ...AccessLogOpts) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var opt AccessLogOpts
-		if len(opts) > 0 {
-			opt = opts[0]
-		}
-		for _, skipMethod := range opt.SkipMethods {
-			if r.Method == skipMethod {
-				next.ServeHTTP(w, r)
-
-				return
-			}
-		}
+func AccessLog(next http.Handler, logger *slog.Logger, callback AccessRequestCallbeck) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, origReq *http.Request) {
 		now := time.Now().UTC()
-
 		newW := &statusAwareResponseWriter{origW: w}
-		next.ServeHTTP(newW, r)
+		next.ServeHTTP(newW, origReq)
 
-		urlPath := r.URL.Path
-		for _, obscurePathValue := range opt.ObfuscatePathValues {
-			if val := r.PathValue(obscurePathValue); val != "" {
-				charsNo := int(math.Min(float64(len(val)), 8.0))
-				obscureVal := val[:len(val)-charsNo] + strings.Repeat("*", charsNo)
-				urlPath = strings.ReplaceAll(urlPath, val, obscureVal)
+		r := origReq
+		if callback != nil {
+			r = origReq.Clone(r.Context())
+			if !callback(r) {
+				return // skip logging for this request
 			}
 		}
 
@@ -93,7 +89,7 @@ func AccessLog(next http.Handler, logger *slog.Logger, opts ...AccessLogOpts) ht
 			[]any{
 				"lvl", "ACCESS",
 				"method", r.Method,
-				"path", urlPath,
+				"path", r.URL.Path,
 				"took", time.Since(now).String(),
 				"userAgent", r.Header.Get("User-Agent"),
 				"ip", httpTransport.GetClientIP(r).String(),
