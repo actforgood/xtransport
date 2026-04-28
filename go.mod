@@ -8,7 +8,7 @@ require (
 	github.com/actforgood/xrand v1.6.0
 	github.com/actforgood/xver v1.0.0
 	github.com/google/uuid v1.6.0
-	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/rabbitmq/amqp091-go v1.11.0
 )
 
 require (
